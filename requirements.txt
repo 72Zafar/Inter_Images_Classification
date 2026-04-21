@@ -1,0 +1,10 @@
+torch
+torchvision
+pyyaml
+dill
+from-root
+python-dotenv
+boto3
+botocore-stubs
+mypy-boto3-s3
+types-s3transfer
