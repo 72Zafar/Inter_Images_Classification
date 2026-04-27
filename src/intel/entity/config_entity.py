@@ -24,3 +24,6 @@ class DataIngestionConfig:
         self.DATA_INGESTION_ARTIFACTS_DIR = self.data_ingestion_dir
 
 
+@dataclass
+class DataValidationConfig:
+    schema_file_path = SCHEMA_FILE_PATH
