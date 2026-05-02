@@ -4,6 +4,7 @@ from src.intel.logger import logging
 from src.intel.exception import CustomException
 from src.intel.components.data_ingestion import DataIngestion
 from src.intel.components.data_validation import DataValidation
+from src.intel.components.model_training import ModelTraining
 from src.intel.entity.config_entity import *
 from src.intel.entity.artifact_entity import *
 
@@ -12,6 +13,7 @@ class TrainingPipeline:
     def __init__(self):
         self.data_ingestion_config = DataIngestionConfig()
         self.data_validation_config = DataValidationConfig()
+        self.model_training_config = ModelTrainingConfig()
     
 
     def start_data_ingestion(self)-> DataIngestionArtifact:
@@ -45,12 +47,26 @@ class TrainingPipeline:
         except Exception as e:
             raise CustomException(e, sys)
 
+    def start_model_training(self, data_ingestion_artifact: DataIngestionArtifact):
+        try:
+            logging.info("Entered the start model training method of TrainingPipeline class")
+            model_trainer = ModelTraining(data_ingestion_artifact = data_ingestion_artifact,
+                                          model_training_config = self.model_training_config)
+            model_trainer_artifact = model_trainer.initiate_model_training()
+            return model_trainer_artifact
+        except Exception as e:
+            raise CustomException(e, sys)
+        
+
 
     def run_pipeline(self):
         logging.info("Entered the run_pipeline method of TrainingPipeline class")
         try:
             data_ingestion_artifact = self.start_data_ingestion()
             data_validation_artifact = self.start_data_validation(data_ingestion_artifact=data_ingestion_artifact)
+            if data_validation_artifact.validation_status:
+                model_trainer_artifact = self.start_model_training(data_ingestion_artifact = data_ingestion_artifact)
+                print(model_trainer_artifact)
 
             logging.info("Successfully completed the run_pipeline method of TrainingPipeline class")
 

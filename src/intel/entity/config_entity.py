@@ -1,6 +1,7 @@
 from datetime import datetime
 from src.intel.constants import *
 from dataclasses import dataclass
+from from_root import from_root
 
 
 TIMESTEMP: str = datetime.now().strftime("%m_%d_%Y_%H_%M_%S")
@@ -27,3 +28,9 @@ class DataIngestionConfig:
 @dataclass
 class DataValidationConfig:
     schema_file_path = SCHEMA_FILE_PATH
+
+@dataclass
+class ModelTrainingConfig:
+    model_training_artifact_dir = os.path.join(from_root(), ARIFACTS_DIR, MODEL_TRAINING_ARTIFACTS_DIR)
+    model_path: str = os.path.join(model_training_artifact_dir, MODEL_NAME)
+    transform_object_path: str = os.path.join(model_training_artifact_dir, TRANSFORM_OBJECT_NAME)

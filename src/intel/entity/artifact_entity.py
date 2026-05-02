@@ -7,3 +7,9 @@ class DataIngestionArtifact:
 @dataclass
 class DataValidationArtifact:
     validation_status: bool
+
+@dataclass
+class ModelTrainingArtifact:
+    model_path: str
+    result: dict
+    transform_object_path: str
