@@ -28,9 +28,12 @@ class ModelTraining():
             logging.info("Shuffle and split the training and validation set")
             train_ds , val_ds = random_split(train_data, [train_size, val_size])
 
-            # PyTorch data loader
-            training_dl = DataLoader(train_ds, BATCH_SIZE, shuffle=True, num_workers = 0, pin_memory = True)
-            valid_dl = DataLoader(val_ds, BATCH_SIZE*2, num_workers = 0 , pin_memory = True)
+            # PyTorch data loader - disable pin_memory when no GPU is available
+            use_pin_memory = torch.cuda.is_available()
+            logging.info(f"Using pin_memory: {use_pin_memory} (GPU available: {torch.cuda.is_available()})")
+            
+            training_dl = DataLoader(train_ds, BATCH_SIZE, shuffle=True, num_workers = 0, pin_memory = use_pin_memory)
+            valid_dl = DataLoader(val_ds, BATCH_SIZE*2, num_workers = 0 , pin_memory = use_pin_memory)
 
             logging.info("Exit get_data_loader method of model trainer")
 
@@ -61,17 +64,20 @@ class ModelTraining():
             valid_dl = DeviceDataLoader(valid_dl, DEVICE)
 
             logging.info("loading data and model to GPU is done")
-            return training_dl, valid_dl, DEVICE
+            return training_dl, valid_dl, model
         except Exception as e:
             raise CustomException(e, sys) from e
     
     def train_model(self, model, train_dl, valid_dl ):
         try:
-            logging.info("Model training started")
+            logging.info("Model training started in train_model method")
+            logging.info(f"Train data loader batches: {len(train_dl)}")
+            logging.info(f"Validation data loader batches: {len(valid_dl)}")
             fitted_model, result = my_fit_method(epochs=EPOCHS, lr = LEARNING_RATE, model=model, train_data_loader=train_dl, val_loader = valid_dl, opt_func = OPTIMIZER,grad_clip=GRAD_CLIP)
             logging.info("Model training is completed")
             return fitted_model, result
         except Exception as e:
+            logging.error(f"Error in train_model: {str(e)}")
             raise CustomException(e, sys)
 
 
@@ -117,7 +123,9 @@ class ModelTraining():
             fitted_model, result = self.train_model(model=model,train_dl=training_dl, valid_dl=valid_dl)
 
             logging.info(f"saving the model at {self.model_training_config.model_path}")
+            os.makedirs(self.model_training_config.model_training_artifact_dir, exist_ok=True)
             torch.save(model.state_dict(), self.model_training_config.model_path)
+            logging.info(f"Model saved successfully at {self.model_training_config.model_path}")
 
             model_trainer_artifact = ModelTrainingArtifact(
                 model_path = self.model_training_config.model_path,

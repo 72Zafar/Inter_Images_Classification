@@ -3,6 +3,7 @@ import torch
 import yaml
 import torch.nn as nn
 from src.intel.exception import CustomException
+from src.intel.logger import logging
 from torch.optim.lr_scheduler import StepLR
 from src.intel.constants import *
 
@@ -51,32 +52,56 @@ def my_fit_method(epochs, lr, model, train_data_loader, val_loader, opt_func=tor
     optimizer = opt_func(model.parameters(), lr,weight_decay=WEIGHT_DECAY)
     sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, lr, epochs=epochs, 
                                                 steps_per_epoch=len(train_data_loader))
+    logging.info(f"Starting training for {epochs} epochs")
+    
     for epoch in range(epochs):
+        logging.info(f"Epoch {epoch+1}/{epochs} started")
         # Training Phase 
         model.train()
         train_losses = []
+        batch_count = 0
 
-        for batch in train_data_loader:
+        try:
+            for batch in train_data_loader:
+                batch_count += 1
+                try:
+                    loss = model.training_step(batch)
+                    train_losses.append(loss)
+                    loss.backward()
+
+                    # Gradient clipping
+                    if grad_clip: 
+                        nn.utils.clip_grad_value_(model.parameters(), grad_clip)
+
+                    optimizer.step()
+                    optimizer.zero_grad()
+
+                    # Record & update learning rate
+                    sched.step()
+                    
+                    # Log progress every 50 batches
+                    if batch_count % 50 == 0:
+                        logging.info(f"Epoch {epoch+1} - Batch {batch_count}/{len(train_data_loader)}, Loss: {loss.item():.4f}")
+                        
+                except Exception as batch_error:
+                    logging.error(f"Error processing batch {batch_count}: {str(batch_error)}")
+                    raise
             
-            loss = model.training_step(batch)
-            train_losses.append(loss)
-            loss.backward()
-
-            # Gradient clipping
-            if grad_clip: 
-                nn.utils.clip_grad_value_(model.parameters(), grad_clip)
-
-            optimizer.step()
-            optimizer.zero_grad()
-
-            # Record & update learning rate
-            sched.step()
+            logging.info(f"Epoch {epoch+1} training complete. Processing {batch_count} batches")
             
-        # Validation Phase
-        result = evaluate(model, val_loader)
-        result['train_loss'] = torch.stack(train_losses).mean().item()
-        model.epoch_end(epoch, result)
-        history.append(result)
+            # Validation Phase
+            logging.info(f"Starting validation for Epoch {epoch+1}")
+            result = evaluate(model, val_loader)
+            result['train_loss'] = torch.stack(train_losses).mean().item()
+            model.epoch_end(epoch, result)
+            logging.info(f"Epoch {epoch+1}: train_loss={result['train_loss']:.4f}, val_loss={result['val_loss']:.4f}, val_acc={result['val_acc']:.4f}")
+            history.append(result)
+            
+        except Exception as e:
+            logging.error(f"Error during epoch {epoch+1}: {str(e)}")
+            raise
+    
+    logging.info("Training completed successfully")
     return model, result
 
 @torch.no_grad()
